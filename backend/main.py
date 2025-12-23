@@ -72,11 +72,33 @@ class SignatureRequest(BaseModel):
     is_default: bool = False
 
 class ExpectedFileRequest(BaseModel):
-    title: str
-    contact: str
-    file_type: str
+    # Accept both naming conventions (doc_type/vendor/keyword OR title/contact/file_type)
+    doc_type: Optional[str] = None
+    vendor: Optional[str] = None
+    keyword: Optional[str] = None
+    # Legacy field names
+    title: Optional[str] = None
+    contact: Optional[str] = None
+    file_type: Optional[str] = None
+    # Common fields
     due_date: Optional[str] = ""
     user_id: Optional[str] = "default_user"
+
+    def get_doc_type(self) -> str:
+        return self.doc_type or self.file_type or "document"
+
+    def get_vendor(self) -> str:
+        return self.vendor or self.contact or ""
+
+    def get_keyword(self) -> str:
+        return self.keyword or ""
+
+    def get_title(self) -> str:
+        if self.title:
+            return self.title
+        vendor = self.get_vendor()
+        doc_type = self.get_doc_type()
+        return f"{doc_type} - {vendor}" if vendor else doc_type
 
 @app.on_event("startup")
 async def startup():
@@ -610,16 +632,28 @@ async def get_expected_files(user_id: str = "default_user"):
 
 @app.post("/api/expected-files")
 async def create_expected_file(request: ExpectedFileRequest):
-    """Créer un fichier attendu"""
+    """Créer un fichier attendu. Accepts both field naming conventions."""
     try:
+        # Extract normalized values
+        vendor = request.get_vendor()
+        doc_type = request.get_doc_type()
+        keyword = request.get_keyword()
+        title = request.get_title()
+
+        # Validate vendor is provided
+        if not vendor or not vendor.strip():
+            raise HTTPException(status_code=400, detail="vendor (or contact) is required")
+
         db = await get_db()
         from uuid import uuid4
         expected_file = {
             "file_id": str(uuid4()),
             "user_id": request.user_id,
-            "title": request.title,
-            "contact": request.contact,
-            "file_type": request.file_type,
+            # Store with canonical field names
+            "doc_type": doc_type,
+            "vendor": vendor.strip(),
+            "keyword": keyword,
+            "title": title,
             "due_date": request.due_date or "",
             "status": "pending",
             "last_check": None,
@@ -629,6 +663,8 @@ async def create_expected_file(request: ExpectedFileRequest):
         # Remove ObjectId before returning
         expected_file.pop("_id", None)
         return {"file": expected_file}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erreur create expected file: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -640,12 +676,15 @@ async def scan_expected_files(user_id: str = "default_user"):
         db = await get_db()
         files = await db.expected_files.find({"user_id": user_id, "status": "pending"}).to_list(100)
         accounts = await db.accounts.find({"user_id": user_id}).to_list(100)
-        
+
         results = []
         for file in files:
             for account in accounts:
+                # Support both old and new field names
+                vendor = file.get('vendor') or file.get('contact', '')
+                doc_type = file.get('doc_type') or file.get('file_type', '')
                 # Construire une requête de recherche
-                query = f"from:{file['contact']} {file['file_type']} has:attachment"
+                query = f"from:{vendor} {doc_type} has:attachment"
                 
                 try:
                     emails = await email_service.search_emails(

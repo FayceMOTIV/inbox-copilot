@@ -38,8 +38,8 @@ export default function DocumentsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newFile, setNewFile] = useState({
     title: '',
-    contact: '',
-    file_type: 'facture',
+    vendor: '',
+    doc_type: 'facture',
     keyword: ''
   })
 
@@ -76,21 +76,20 @@ export default function DocumentsPage() {
   }
 
   const createFile = async () => {
-    if (!newFile.contact) {
-      toast.error('Veuillez indiquer un fournisseur ou contact')
+    if (!newFile.vendor) {
+      toast.error('Veuillez indiquer un fournisseur')
       return
     }
 
     setCreating(true)
     try {
-      const autoTitle = newFile.title || `${newFile.file_type === 'autre' ? 'Document' : newFile.file_type} - ${newFile.contact}${newFile.keyword ? ` (${newFile.keyword})` : ''}`
       const res = await fetch(`${API_BASE}/api/expected-files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: autoTitle,
-          contact: newFile.contact,
-          file_type: newFile.file_type,
+          doc_type: newFile.doc_type,
+          vendor: newFile.vendor,
+          keyword: newFile.keyword || '',
           due_date: ''
         })
       })
@@ -98,7 +97,7 @@ export default function DocumentsPage() {
       if (res.ok) {
         toast.success('Document ajouté en surveillance')
         setDialogOpen(false)
-        setNewFile({ title: '', contact: '', file_type: 'facture', keyword: '' })
+        setNewFile({ title: '', vendor: '', doc_type: 'facture', keyword: '' })
         loadData()
       } else {
         const errData = await res.json().catch(() => ({}))
@@ -141,6 +140,9 @@ export default function DocumentsPage() {
   const FileCard = ({ file }) => {
     const status = getStatusConfig(file.status)
     const StatusIcon = status.icon
+    // Support both old and new field names
+    const docType = file.doc_type || file.file_type
+    const vendor = file.vendor || file.contact
 
     return (
       <motion.div
@@ -160,7 +162,7 @@ export default function DocumentsPage() {
 
               <div className="flex flex-wrap gap-2 mb-3">
                 <Badge variant="outline" className="text-xs capitalize">
-                  {file.file_type}
+                  {docType}
                 </Badge>
                 <Badge variant="secondary" className="text-xs">
                   {status.label}
@@ -169,8 +171,8 @@ export default function DocumentsPage() {
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-muted-foreground">Contact</p>
-                  <p className="font-medium truncate">{file.contact}</p>
+                  <p className="text-xs text-muted-foreground">Fournisseur</p>
+                  <p className="font-medium truncate">{vendor}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Dernière vérification</p>
@@ -290,7 +292,7 @@ export default function DocumentsPage() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <Select value={newFile.file_type} onValueChange={(v) => setNewFile({ ...newFile, file_type: v })}>
+                        <Select value={newFile.doc_type} onValueChange={(v) => setNewFile({ ...newFile, doc_type: v })}>
                           <SelectTrigger>
                             <SelectValue placeholder="Type" />
                           </SelectTrigger>
@@ -304,15 +306,15 @@ export default function DocumentsPage() {
                         </Select>
 
                         <Input
-                          value={newFile.contact}
-                          onChange={(e) => setNewFile({ ...newFile, contact: e.target.value })}
+                          value={newFile.vendor}
+                          onChange={(e) => setNewFile({ ...newFile, vendor: e.target.value })}
                           placeholder="Fournisseur"
                           className="md:col-span-2"
                         />
 
                         <Button
                           onClick={createFile}
-                          disabled={creating || !newFile.contact}
+                          disabled={creating || !newFile.vendor}
                           className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
                         >
                           {creating ? (
@@ -376,7 +378,7 @@ export default function DocumentsPage() {
           <div className="space-y-4 pt-2">
             <div>
               <Label>Type de document</Label>
-              <Select value={newFile.file_type} onValueChange={(v) => setNewFile({ ...newFile, file_type: v })}>
+              <Select value={newFile.doc_type} onValueChange={(v) => setNewFile({ ...newFile, doc_type: v })}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
@@ -391,21 +393,11 @@ export default function DocumentsPage() {
             </div>
 
             <div>
-              <Label>Fournisseur ou contact *</Label>
+              <Label>Fournisseur *</Label>
               <Input
-                value={newFile.contact}
-                onChange={(e) => setNewFile({ ...newFile, contact: e.target.value })}
+                value={newFile.vendor}
+                onChange={(e) => setNewFile({ ...newFile, vendor: e.target.value })}
                 placeholder="Ex: Distram, EDF, Comptable..."
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label>Titre (optionnel)</Label>
-              <Input
-                value={newFile.title}
-                onChange={(e) => setNewFile({ ...newFile, title: e.target.value })}
-                placeholder="Ex: Facture novembre 2024"
                 className="mt-1"
               />
             </div>
@@ -422,7 +414,7 @@ export default function DocumentsPage() {
 
             <Button
               onClick={createFile}
-              disabled={creating || !newFile.contact}
+              disabled={creating || !newFile.vendor}
               className="w-full gap-2 bg-gradient-to-r from-purple-500 to-pink-500"
             >
               {creating ? (

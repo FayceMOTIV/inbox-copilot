@@ -249,6 +249,10 @@ async def update_status(
     - WAITING: En attente de réponse (définit un suivi automatique à J+3)
     - DONE: Terminé
     """
+    # Validate thread_id is not empty
+    if not thread_id or thread_id.strip() == "":
+        raise HTTPException(status_code=400, detail="thread_id cannot be empty")
+
     try:
         status = ThreadStatus(update.status.upper())
     except ValueError:

@@ -109,15 +109,15 @@ export default function EmailDrawer({
     setLoading('doc')
     try {
       const fromEmail = email.from_email || email.from
-      const label = email.from?.split('<')[0]?.trim() || 'Fournisseur'
+      const vendorName = email.from?.split('<')[0]?.trim() || 'Fournisseur'
 
       const res = await fetch(`${API_BASE}/api/expected-files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: `Document de ${label}`,
-          contact: label,
-          file_type: 'facture',
+          doc_type: 'facture',
+          vendor: vendorName,
+          keyword: '',
           due_date: ''
         })
       })
