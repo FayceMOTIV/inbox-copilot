@@ -74,32 +74,44 @@ async def update_thread_status(
     status: ThreadStatus,
     next_followup_at: Optional[datetime] = None
 ) -> bool:
-    """Update thread status."""
+    """Update thread status. Creates thread if it doesn't exist (upsert)."""
     db = await get_db()
+    now = datetime.utcnow()
 
     update = {
         "$set": {
             "status": status,
-            "updated_at": datetime.utcnow()
+            "updated_at": now
+        },
+        "$setOnInsert": {
+            "user_id": user_id,
+            "thread_id": thread_id,
+            "created_at": now,
+            "last_activity_at": now,
+            "participants": [],
+            "tags": [],
+            "email_count": 0,
+            "unread_count": 0
         }
     }
 
     if status == ThreadStatus.WAITING:
-        update["$set"]["last_user_reply_at"] = datetime.utcnow()
+        update["$set"]["last_user_reply_at"] = now
         # Default followup in 3 days if not specified
         if next_followup_at:
             update["$set"]["next_followup_at"] = next_followup_at
         else:
-            update["$set"]["next_followup_at"] = datetime.utcnow() + timedelta(days=3)
+            update["$set"]["next_followup_at"] = now + timedelta(days=3)
     elif status == ThreadStatus.DONE:
         update["$set"]["next_followup_at"] = None
 
     result = await db.threads.update_one(
         {"user_id": user_id, "thread_id": thread_id},
-        update
+        update,
+        upsert=True
     )
 
-    return result.modified_count > 0
+    return result.modified_count > 0 or result.upserted_id is not None
 
 
 async def mark_thread_activity(

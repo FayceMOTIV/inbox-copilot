@@ -2,6 +2,26 @@
 
 All notable changes to Inbox Copilot are documented here.
 
+## [v1.1.4] - 2024-12-23
+
+### Fixed
+- **EmailDrawer buttons regression**: "Traité" and "En attente" buttons now work
+  - Fixed thread status endpoint to upsert (create if not exists)
+  - Threads are created on-demand when marking status
+- **Documents rule creation**: Creating surveillance rules now works
+  - Made `due_date` optional in API (defaults to empty string)
+  - Fixed ObjectId serialization error in response
+- **Improved error handling**: All drawer actions now show proper error toasts
+
+### Changed
+- `update_thread_status` in threads.py now uses upsert for create-if-not-exists behavior
+
+## [v1.1.3] - 2024-12-23
+
+### Changed
+- Debug page shows 404 content in production (soft 404, not redirect)
+- Added runtime debug_key param for prod testing
+
 ## [v1.1.2] - 2024-12-23
 
 ### Added

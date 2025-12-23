@@ -75,7 +75,7 @@ class ExpectedFileRequest(BaseModel):
     title: str
     contact: str
     file_type: str
-    due_date: str
+    due_date: Optional[str] = ""
     user_id: Optional[str] = "default_user"
 
 @app.on_event("startup")
@@ -602,7 +602,7 @@ async def get_expected_files(user_id: str = "default_user"):
     """Liste des fichiers attendus"""
     try:
         db = await get_db()
-        files = await db.expected_files.find({"user_id": user_id}).to_list(100)
+        files = await db.expected_files.find({"user_id": user_id}, {"_id": 0}).to_list(100)
         return {"files": files}
     except Exception as e:
         logger.error(f"Erreur get expected files: {e}")
@@ -620,12 +620,14 @@ async def create_expected_file(request: ExpectedFileRequest):
             "title": request.title,
             "contact": request.contact,
             "file_type": request.file_type,
-            "due_date": request.due_date,
+            "due_date": request.due_date or "",
             "status": "pending",
             "last_check": None,
             "associated_email": None
         }
         await db.expected_files.insert_one(expected_file)
+        # Remove ObjectId before returning
+        expected_file.pop("_id", None)
         return {"file": expected_file}
     except Exception as e:
         logger.error(f"Erreur create expected file: {e}")

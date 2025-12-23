@@ -100,10 +100,13 @@ export default function DocumentsPage() {
         setDialogOpen(false)
         setNewFile({ title: '', contact: '', file_type: 'facture', keyword: '' })
         loadData()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.detail || 'Erreur lors de la création')
       }
     } catch (error) {
       console.error('Error creating file:', error)
-      toast.error('Erreur lors de la création')
+      toast.error('Erreur réseau')
     } finally {
       setCreating(false)
     }

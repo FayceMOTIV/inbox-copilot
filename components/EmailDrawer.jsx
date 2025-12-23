@@ -43,9 +43,13 @@ export default function EmailDrawer({
         toast.success('Marqué comme traité')
         onStatusChange?.('done')
         onClose()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.detail || 'Erreur lors du marquage')
       }
     } catch (error) {
-      toast.error('Erreur')
+      console.error('handleMarkDone error:', error)
+      toast.error('Erreur réseau')
     } finally {
       setLoading(null)
     }
@@ -63,9 +67,13 @@ export default function EmailDrawer({
         toast.success('Mis en attente')
         onStatusChange?.('waiting')
         onClose()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.detail || 'Erreur lors du marquage')
       }
     } catch (error) {
-      toast.error('Erreur')
+      console.error('handleMarkWaiting error:', error)
+      toast.error('Erreur réseau')
     } finally {
       setLoading(null)
     }
@@ -85,9 +93,13 @@ export default function EmailDrawer({
       if (res.ok) {
         toast.success(`${label} ajouté aux VIP`)
         onVipAdded?.()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.detail || 'Erreur lors de l\'ajout VIP')
       }
     } catch (error) {
-      toast.error('Erreur')
+      console.error('handleAddVip error:', error)
+      toast.error('Erreur réseau')
     } finally {
       setLoading(null)
     }
@@ -105,14 +117,19 @@ export default function EmailDrawer({
         body: JSON.stringify({
           title: `Document de ${label}`,
           contact: label,
-          file_type: 'facture'
+          file_type: 'facture',
+          due_date: ''
         })
       })
       if (res.ok) {
         toast.success('Règle de surveillance créée')
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.detail || 'Erreur lors de la création')
       }
     } catch (error) {
-      toast.error('Erreur')
+      console.error('handleAddDocRule error:', error)
+      toast.error('Erreur réseau')
     } finally {
       setLoading(null)
     }
