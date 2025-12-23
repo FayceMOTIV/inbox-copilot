@@ -24,13 +24,15 @@ import { getLastApiError, getApiBase } from '@/lib/api-client'
 
 const API_BASE = getApiBase()
 
-// Check if debug mode is enabled
+// Check if debug mode is enabled (build-time + runtime)
 function isDebugEnabled() {
   if (typeof window === 'undefined') return false
-  // Allow in development or if flag is set
+  // Build-time check
   const isDev = process.env.NODE_ENV !== 'production'
-  const hasFlag = process.env.NEXT_PUBLIC_DEBUG === 'true'
-  return isDev || hasFlag
+  const hasBuildFlag = process.env.NEXT_PUBLIC_DEBUG === 'true'
+  // Runtime check via URL param (for testing in prod)
+  const hasRuntimeFlag = new URLSearchParams(window.location.search).get('debug_key') === 'inbox2024'
+  return isDev || hasBuildFlag || hasRuntimeFlag
 }
 
 export default function DebugPage() {
@@ -52,14 +54,11 @@ export default function DebugPage() {
   useEffect(() => {
     setMounted(true)
 
-    // Check if debug is allowed
-    if (!isDebugEnabled()) {
-      router.replace('/')
-      return
+    // Only load debug data if enabled
+    if (isDebugEnabled()) {
+      loadDebugData()
     }
-
-    loadDebugData()
-  }, [router])
+  }, [])
 
   const loadDebugData = async () => {
     setLoading(true)
@@ -181,9 +180,16 @@ Last API Error: ${debugData.lastError ? JSON.stringify(debugData.lastError) : 'n
     return null
   }
 
-  // Redirect handled in useEffect
+  // Show 404-like page if debug not enabled
   if (!isDebugEnabled()) {
-    return null
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-6xl font-bold text-muted-foreground">404</h1>
+          <p className="text-muted-foreground mt-2">Page not found</p>
+        </div>
+      </div>
+    )
   }
 
   return (
