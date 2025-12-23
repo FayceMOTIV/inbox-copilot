@@ -43,17 +43,32 @@ learning_router = APIRouter(prefix="/api/learning", tags=["Learning"])
 @router.get("")
 async def list_notifications(
     user_id: str = Query(default="default_user"),
-    limit: int = Query(default=50, le=100)
+    limit: int = Query(default=50, le=100),
+    unread_only: bool = Query(default=False)
 ):
     """
-    Récupère les notifications non lues.
-    Endpoint principal pour l'app mobile.
+    Récupère les notifications.
+    unread_only=true pour seulement les non lues.
     """
-    notifications = await get_pending_notifications(user_id, limit)
+    db = await get_db()
+    query = {"user_id": user_id}
+    if unread_only:
+        query["read"] = False
+
+    cursor = db.notifications.find(query).sort("created_at", -1).limit(limit)
+    notifications = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["id"] = doc["_id"]
+        notifications.append(doc)
+
+    # Count unread
+    unread_count = await db.notifications.count_documents({"user_id": user_id, "read": False})
+
     return {
         "notifications": notifications,
         "count": len(notifications),
-        "unread_count": len(notifications)
+        "unread_count": unread_count
     }
 
 
@@ -61,6 +76,30 @@ async def list_notifications(
 async def read_notification(notification_id: str):
     """Marque une notification comme lue."""
     await mark_notification_read(notification_id)
+    return {"success": True}
+
+
+class MarkReadRequest(BaseModel):
+    ids: List[str]
+
+
+@router.post("/mark_read")
+async def batch_mark_read(body: MarkReadRequest):
+    """Marque plusieurs notifications comme lues."""
+    from bson import ObjectId
+    db = await get_db()
+    object_ids = [ObjectId(id) for id in body.ids]
+    await db.notifications.update_many(
+        {"_id": {"$in": object_ids}},
+        {"$set": {"read": True, "read_at": datetime.utcnow()}}
+    )
+    return {"success": True, "marked": len(body.ids)}
+
+
+@router.post("/mark_all_read")
+async def mark_all_read_endpoint(user_id: str = Query(default="default_user")):
+    """Marque toutes les notifications comme lues."""
+    await mark_all_notifications_read(user_id)
     return {"success": True}
 
 

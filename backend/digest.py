@@ -225,6 +225,137 @@ def classify_email(
     }
 
 
+async def is_silence_active(db, user_id: str) -> bool:
+    """Check if silence mode is currently active."""
+    settings = await db.user_settings.find_one({"user_id": user_id})
+    if not settings or "silence" not in settings:
+        return False
+
+    silence = settings["silence"]
+    if not silence.get("enabled"):
+        return False
+
+    # Check time ranges
+    now = datetime.utcnow()
+    current_time = now.strftime("%H:%M")
+
+    for r in silence.get("ranges", []):
+        start = r.get("start", "00:00")
+        end = r.get("end", "23:59")
+        if start <= current_time <= end:
+            return True
+
+    return False
+
+
+async def generate_recap_notifications(db, user_id: str, recap: Dict[str, Any]):
+    """Generate notifications for important recap items."""
+    now = datetime.utcnow()
+
+    # Check silence mode - still create notifications but mark them
+    silence_active = await is_silence_active(db, user_id)
+
+    notifications_to_create = []
+
+    # URGENT items (confidence >= 0.85)
+    for item in recap.get("urgent", []):
+        if item.get("confidence", 0) >= 0.85:
+            notifications_to_create.append({
+                "user_id": user_id,
+                "type": "urgent",
+                "title": f"🔴 Urgent: {item.get('from', '').split('<')[0].strip()[:30]}",
+                "body": item.get("subject", "")[:100],
+                "message": item.get("subject", "")[:100],
+                "priority": "urgent",
+                "data": {
+                    "email_id": item.get("email_id"),
+                    "account_id": item.get("account_id"),
+                    "reason": item.get("reason")
+                },
+                "email_id": item.get("email_id"),
+                "created_at": now,
+                "read": False,
+                "silenced": silence_active
+            })
+
+    # VIP items
+    for item in recap.get("urgent", []) + recap.get("todo", []):
+        if item.get("is_vip"):
+            # Avoid duplicates
+            if not any(n.get("email_id") == item.get("email_id") for n in notifications_to_create):
+                notifications_to_create.append({
+                    "user_id": user_id,
+                    "type": "vip",
+                    "title": f"⭐ VIP: {item.get('from', '').split('<')[0].strip()[:30]}",
+                    "body": item.get("subject", "")[:100],
+                    "message": item.get("subject", "")[:100],
+                    "priority": "high",
+                    "data": {
+                        "email_id": item.get("email_id"),
+                        "account_id": item.get("account_id"),
+                        "is_vip": True
+                    },
+                    "email_id": item.get("email_id"),
+                    "created_at": now,
+                    "read": False,
+                    "silenced": silence_active
+                })
+
+    # Document critiques (facture, devis)
+    for doc in recap.get("documents", []):
+        doc_type = doc.get("doc_type", doc.get("type", "document"))
+        if doc_type in ["facture", "devis", "invoice"]:
+            notifications_to_create.append({
+                "user_id": user_id,
+                "type": "document",
+                "title": f"📄 {doc_type.capitalize()}: {doc.get('from', '').split('<')[0].strip()[:25]}",
+                "body": doc.get("subject", "")[:100],
+                "message": doc.get("subject", "")[:100],
+                "priority": "medium",
+                "data": {
+                    "email_id": doc.get("email_id"),
+                    "doc_type": doc_type
+                },
+                "email_id": doc.get("email_id"),
+                "created_at": now,
+                "read": False,
+                "silenced": silence_active
+            })
+
+    # Waiting overdue
+    for w in recap.get("waiting", []):
+        if w.get("is_overdue"):
+            notifications_to_create.append({
+                "user_id": user_id,
+                "type": "waiting_overdue",
+                "title": f"⏰ Relance: {w.get('subject', 'conversation')[:40]}",
+                "body": f"Sans réponse depuis {w.get('days_waiting', 0)} jours",
+                "message": f"Sans réponse depuis {w.get('days_waiting', 0)} jours",
+                "priority": "medium",
+                "data": {
+                    "thread_id": w.get("thread_id"),
+                    "days_waiting": w.get("days_waiting")
+                },
+                "thread_id": w.get("thread_id"),
+                "created_at": now,
+                "read": False,
+                "silenced": silence_active
+            })
+
+    # Insert notifications (avoid duplicates by email_id/thread_id for today)
+    for notif in notifications_to_create[:10]:  # Limit to 10 per recap
+        existing = await db.notifications.find_one({
+            "user_id": user_id,
+            "email_id": notif.get("email_id"),
+            "created_at": {"$gte": datetime.utcnow().replace(hour=0, minute=0, second=0)}
+        }) if notif.get("email_id") else None
+
+        if not existing:
+            await db.notifications.insert_one(notif)
+
+    logger.info(f"🔔 Created {len(notifications_to_create)} notifications for {user_id} (silence={silence_active})")
+
+
 async def generate_recap(
     user_id: str,
     recap_type: str = RecapType.MANUAL,
@@ -437,6 +568,9 @@ async def generate_recap(
         {"$set": recap},
         upsert=True
     )
+
+    # Generate notifications for important items (respecting Mode Silence)
+    await generate_recap_notifications(db, user_id, recap)
 
     logger.info(f"📊 Generated {recap_type} recap for {user_id}: {recap['stats']}")
 

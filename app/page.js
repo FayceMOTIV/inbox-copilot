@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Mic, MicOff, Loader2, Copy, X, ExternalLink, Sparkles, Mail, Search, Zap, ChevronDown, Plus, MessageSquare, Trash2, Download, Paperclip, Reply } from 'lucide-react'
+import { Send, Loader2, Copy, X, ExternalLink, Sparkles, Mail, Search, Zap, ChevronDown, Plus, MessageSquare, Trash2, Download, Paperclip, Reply, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +18,9 @@ import Header from '@/components/Header'
 import Logo from '@/components/Logo'
 import MotivationalMessage from '@/components/MotivationalMessage'
 import EmailPanel from '@/components/EmailPanel'
+import NotificationCenter from '@/components/NotificationCenter'
+import { VoiceInputButton, TTSToggleButton, useTTS } from '@/components/VoiceInput'
+import { AssistantResponse, AssistantResultList, AssistantActionSuggestions } from '@/components/AssistantCards'
 import { useMediaQuery } from '@/hooks/use-mobile'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
@@ -50,8 +53,6 @@ export default function AssistantPage() {
   const [accounts, setAccounts] = useState([])
   const [emailDraft, setEmailDraft] = useState(null)
   const [searchResults, setSearchResults] = useState(null)
-  const [isRecording, setIsRecording] = useState(false)
-  const [recognition, setRecognition] = useState(null)
   const [conversationId, setConversationId] = useState(null)
   const [conversations, setConversations] = useState([])
   const [showHistory, setShowHistory] = useState(false)
@@ -63,15 +64,23 @@ export default function AssistantPage() {
   const [showEmailPanel, setShowEmailPanel] = useState(false)
   const [todaySummary, setTodaySummary] = useState(null)
   const [suggestions, setSuggestions] = useState(defaultSuggestions)
+  const [ttsEnabled, setTtsEnabled] = useState(false)
   const messagesEndRef = useRef(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
+  const { speak, isSupported: ttsSupported } = useTTS()
+
+  // Handle notification click to open email
+  const handleNotificationEmail = (email) => {
+    setActiveEmail(email)
+    setActiveAccountId(email.account_id)
+    setShowEmailPanel(true)
+  }
 
   useEffect(() => {
     loadAccounts()
     loadConversations()
     loadActiveConversation()
     loadTodaySummary()
-    initSpeechRecognition()
   }, [])
 
   const loadTodaySummary = async () => {
@@ -130,51 +139,9 @@ export default function AssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const initSpeechRecognition = () => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      if (SpeechRecognition) {
-        const recognitionInstance = new SpeechRecognition()
-        recognitionInstance.continuous = false
-        recognitionInstance.interimResults = false
-        recognitionInstance.lang = 'fr-FR'
-
-        recognitionInstance.onresult = (event) => {
-          const transcript = event.results[0][0].transcript
-          setMessage(transcript)
-          setIsRecording(false)
-          toast.success('✅ Message transcrit !')
-        }
-
-        recognitionInstance.onerror = (event) => {
-          console.error('Speech recognition error:', event.error)
-          toast.error('Erreur de reconnaissance vocale')
-          setIsRecording(false)
-        }
-
-        recognitionInstance.onend = () => {
-          setIsRecording(false)
-        }
-
-        setRecognition(recognitionInstance)
-      }
-    }
-  }
-
-  const toggleRecording = () => {
-    if (!recognition) {
-      toast.error('Dictée vocale non disponible sur ce navigateur')
-      return
-    }
-
-    if (isRecording) {
-      recognition.stop()
-      setIsRecording(false)
-    } else {
-      recognition.start()
-      setIsRecording(true)
-      toast('🎤 Écoute en cours...')
-    }
+  // Handle voice transcript from VoiceInputButton
+  const handleVoiceTranscript = (transcript) => {
+    setMessage(transcript)
   }
 
   const loadAccounts = async () => {
@@ -292,9 +259,21 @@ export default function AssistantPage() {
 
       const data = await res.json()
 
-      const aiMessage = { role: 'assistant', content: data.reply }
+      // Build AI message with optional cards data
+      const aiMessage = {
+        role: 'assistant',
+        content: data.reply,
+        emails: data.context?.search_results || data.emails || [],
+        documents: data.documents || [],
+        suggestions: data.suggestions || []
+      }
       const updatedMessages = [...historyForBackend, userMessage, aiMessage]
       setMessages(prev => [...prev, aiMessage])
+
+      // TTS: Speak AI response if enabled
+      if (ttsEnabled && data.reply) {
+        speak(data.reply)
+      }
 
       // Save conversation after each exchange
       await saveConversation(updatedMessages)
@@ -709,6 +688,11 @@ ${emailDraft.body}`)
             subtitle={<span className="text-[#111827]">Tu parles, je gère</span>}
             rightContent={
               <div className="flex items-center gap-2">
+                <TTSToggleButton
+                  enabled={ttsEnabled}
+                  onToggle={() => setTtsEnabled(!ttsEnabled)}
+                />
+                <NotificationCenter onSelectEmail={handleNotificationEmail} />
                 <Button
                   variant="outline"
                   size="sm"
@@ -791,7 +775,12 @@ ${emailDraft.body}`)
         {isMobile && (
           <div className="px-4 pt-4 pb-2 flex items-center justify-between">
             <h2 className="text-lg font-bold">Inbox Copilot</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
+              <TTSToggleButton
+                enabled={ttsEnabled}
+                onToggle={() => setTtsEnabled(!ttsEnabled)}
+              />
+              <NotificationCenter onSelectEmail={handleNotificationEmail} />
               <Button
                 variant="outline"
                 size="sm"
@@ -852,7 +841,7 @@ ${emailDraft.body}`)
                     key={idx}
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ 
+                    transition={{
                       type: "spring",
                       stiffness: 400,
                       damping: 25
@@ -862,14 +851,33 @@ ${emailDraft.body}`)
                       msg.role === 'user' ? 'justify-end' : 'justify-start'
                     )}
                   >
-                    <div className={cn(
-                      "max-w-[85%] md:max-w-[75%] rounded-3xl px-5 py-3.5 shadow-md",
-                      msg.role === 'user' 
-                        ? 'user-bubble rounded-br-md' 
-                        : 'ai-bubble rounded-bl-md'
-                    )}>
-                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                    </div>
+                    {msg.role === 'user' ? (
+                      <div className="max-w-[85%] md:max-w-[75%] rounded-3xl px-5 py-3.5 shadow-md user-bubble rounded-br-md">
+                        <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    ) : (
+                      <div className="max-w-[85%] md:max-w-[75%] rounded-3xl px-5 py-3.5 shadow-md ai-bubble rounded-bl-md">
+                        <AssistantResponse
+                          text={msg.content}
+                          emails={msg.emails}
+                          documents={msg.documents}
+                          suggestions={msg.suggestions}
+                          onEmailClick={(email) => {
+                            setActiveEmail(email)
+                            setActiveAccountId(email.account_id)
+                            setShowEmailPanel(true)
+                          }}
+                          onDocClick={(doc) => {
+                            setActiveEmail(doc)
+                            setActiveAccountId(doc.account_id)
+                            setShowEmailPanel(true)
+                          }}
+                          onSuggestionClick={(sug) => {
+                            setMessage(sug.action || sug.text)
+                          }}
+                        />
+                      </div>
+                    )}
                   </motion.div>
                 ))}
 
@@ -911,21 +919,14 @@ ${emailDraft.body}`)
                 disabled={loading}
                 className="pr-14 h-14 text-base rounded-3xl border-2 border-primary/20 focus:border-primary/50 bg-white"
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleRecording}
+              <VoiceInputButton
+                onTranscript={handleVoiceTranscript}
                 disabled={loading}
-                className={cn(
-                  "absolute right-2 top-1/2 -translate-y-1/2 rounded-full w-10 h-10",
-                  isRecording && "recording bg-orange-500 text-white hover:bg-orange-600"
-                )}
-              >
-                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </Button>
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+              />
             </div>
-            <Button 
-              onClick={sendMessage} 
+            <Button
+              onClick={sendMessage}
               disabled={loading || !message.trim()}
               size="icon"
               className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg"
