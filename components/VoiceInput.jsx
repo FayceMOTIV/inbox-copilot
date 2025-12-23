@@ -196,7 +196,7 @@ export function TTSToggleButton({ enabled, onToggle, className = '' }) {
   )
 }
 
-// TTS Speaker function
+// TTS Speaker function - SSR-safe
 export function useTTS() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
@@ -206,7 +206,10 @@ export function useTTS() {
   }, [])
 
   const speak = (text, options = {}) => {
+    // SSR guard - never access window on server
+    if (typeof window === 'undefined') return
     if (!isSupported || !text) return
+    if (!window.speechSynthesis) return
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel()
@@ -233,7 +236,9 @@ export function useTTS() {
   }
 
   const stop = () => {
-    if (isSupported) {
+    // SSR guard
+    if (typeof window === 'undefined') return
+    if (isSupported && window.speechSynthesis) {
       window.speechSynthesis.cancel()
       setIsSpeaking(false)
     }
