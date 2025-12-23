@@ -1,7 +1,7 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
-import { ThemeProvider } from 'next-themes'
+import Providers from '@/components/Providers'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -14,9 +14,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={`${inter.className}`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <Providers>
           {children}
-          <Toaster 
+          <Toaster
             position="top-center"
             toastOptions={{
               style: {
@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
               }
             }}
           />
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   )
