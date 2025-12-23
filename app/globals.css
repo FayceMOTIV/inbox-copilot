@@ -1,0 +1,264 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 33% 99%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 217 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 96%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 214 20% 98%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 24 100% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 100% 50%;
+    --radius: 16px;
+    --user-bubble: 217 100% 50%;
+    --ai-bubble: 262 83% 58%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 214 32% 98%;
+    --card: 217 33% 18%;
+    --card-foreground: 214 32% 98%;
+    --popover: 217 33% 18%;
+    --popover-foreground: 214 32% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 27%;
+    --secondary-foreground: 214 32% 98%;
+    --muted: 217 33% 27%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 27 96% 61%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 71%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 27%;
+    --input: 217 33% 27%;
+    --ring: 217 91% 60%;
+    --user-bubble: 217 91% 60%;
+    --ai-bubble: 263 70% 54%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Subtle mesh pattern */
+.mesh-background {
+  background-image:
+    radial-gradient(at 0% 0%, rgba(0, 102, 255, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(124, 58, 237, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(255, 107, 53, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(0, 102, 255, 0.03) 0px, transparent 50%);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  body {
+    @apply text-base;
+  }
+
+  button, a, input, textarea {
+    min-height: 48px;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--ai-bubble)) 100%);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+}
+
+/* Glassmorphism */
+.glass {
+  background: hsla(0, 0%, 100%, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsla(0, 0%, 100%, 0.5);
+}
+
+.glass-dark {
+  background: hsla(217, 33%, 18%, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsla(0, 0%, 100%, 0.1);
+}
+
+/* Chat card - Desktop only */
+.chat-card {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Recording animation */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.7);
+  }
+  50% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(255, 107, 53, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0);
+  }
+}
+
+.recording {
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+
+/* iMessage-like bubbles with gradients */
+.user-bubble {
+  background: linear-gradient(135deg, hsl(var(--user-bubble)) 0%, #3B82F6 100%);
+  color: white;
+  box-shadow: 0 2px 8px hsla(var(--user-bubble), 0.3);
+}
+
+.ai-bubble {
+  background: linear-gradient(135deg, hsl(var(--ai-bubble)) 0%, #A855F7 100%);
+  color: white;
+  box-shadow: 0 2px 8px hsla(var(--ai-bubble), 0.25);
+}
+
+/* Energetic animations */
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.85) translateY(10px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05) translateY(-2px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.bounce-in {
+  animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #0066FF 0%, #7C3AED 50%, #FF6B35 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Shine effect */
+@keyframes shine {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.shine {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shine 3s linear infinite;
+}
+
+/* Suggestion pill */
+.suggestion-pill {
+  transition: all 0.2s ease;
+}
+
+.suggestion-pill:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Bottom sheet */
+.bottom-sheet {
+  background: white;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Hide scrollbar */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile bottom nav safe area */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Readable text */
+.text-readable {
+  color: hsl(0, 0%, 25%);
+}
+
+.text-readable-muted {
+  color: hsl(0, 0%, 40%);
+}
